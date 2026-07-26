@@ -3,17 +3,21 @@ main = "src/index.js"
 compatibility_date = "2025-06-04"
 keep_vars = true
 
+[[routes]]
+pattern = "mail.riordon.xyz"
+custom_domain = true
+
 [observability]
 enabled = true
 
-#[[d1_databases]]
-#binding = "db"			#d1数据库绑定名默认不可修改
-#database_name = ""		#d1数据库名字
-#database_id = ""		#d1数据库id
+[[d1_databases]]
+binding = "db"			#d1数据库绑定名默认不可修改
+database_name = "cloudmail"	#使用现有D1数据库
+database_id = "0ba196fd-d477-433d-bba9-86f450c05b52"
 
-#[[kv_namespaces]]
-#binding = "kv"			#kv绑定名默认不可修改
-#id = ""					#kv数据库id
+[[kv_namespaces]]
+binding = "kv"			#kv绑定名默认不可修改
+id = "a9b049df497b46f5be3306680b1da676"
 
 #[[r2_buckets]]
 #binding = "r2"			#r2对象存储绑定名默认不可修改
@@ -39,8 +43,8 @@ crons = ["0 16 * * *"]	#每天晚上12点执行每日任务,刷新分析缓存
 #ai_model = ""			#ai模型,不填默认使用@cf/meta/llama-3.1-8b-instruct
 #analysis_cache = false			#是否开启分析数据缓存
 #orm_log = false			#是否sql日志
-#domain = []				#邮件域名可可配置多个 示例: ["example1.com","example2.com"]
-#admin = ""				#管理员的邮箱	示例: admin@example.com
+domain = ["riordon.xyz", "91svip.us.ci", "riordon.xx.kg", "ruka.cc.cd"]
+admin = "admin@riordon.xyz"
 #jwt_secret = ""			#jwt令牌的密钥,随便填一串字符串
 
 [build]
