@@ -45,6 +45,7 @@ crons = ["0 16 * * *"]	#每天晚上12点执行每日任务,刷新分析缓存
 #orm_log = false			#是否sql日志
 domain = ["riordon.xyz", "91svip.us.ci", "riordon.xx.kg", "ruka.cc.cd"]
 admin = "admin@riordon.xyz"
+huawei_client_id = "6917611451225531193"
 #jwt_secret = ""			#jwt令牌的密钥,随便填一串字符串
 
 [build]

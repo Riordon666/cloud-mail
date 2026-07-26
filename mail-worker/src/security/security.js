@@ -58,7 +58,8 @@ const requirePerms = [
 	'/regKey/list',
 	'/regKey/delete',
 	'/regKey/clearNotUse',
-	'/regKey/history'
+	'/regKey/history',
+	'/huawei/admin/list'
 ];
 
 const premKey = {

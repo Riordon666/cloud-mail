@@ -7,5 +7,8 @@ export const huaweiAccount = sqliteTable('huawei_account', {
 	unionId: text('union_id'),
 	openId: text('open_id').notNull(),
 	userId: integer('user_id').notNull(),
+	nickName: text('nick_name'),
+	avatarUrl: text('avatar_url'),
+	profileUpdateTime: text('profile_update_time'),
 	createTime: text('create_time').default(sql`CURRENT_TIMESTAMP`).notNull()
 });

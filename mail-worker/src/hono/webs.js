@@ -21,4 +21,5 @@ import '../api/public-api'
 import '../api/telegram-api'
 import '../api/oauth-api'
 import '../api/huawei-account-api'
+import '../api/huawei-account-admin-api'
 export default app;

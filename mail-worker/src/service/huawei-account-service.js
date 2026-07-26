@@ -6,10 +6,13 @@ import userService from './user-service';
 import loginService from './login-service';
 import cryptoUtils from '../utils/crypto-utils';
 import JwtUtils from '../utils/jwt-utils';
+import huaweiAccountInitService from './huawei-account-init-service';
 
 const HUAWEI_TOKEN_URL = 'https://oauth-login.cloud.huawei.com/oauth2/v3/token';
 const HUAWEI_TOKEN_INFO_URL =
 	'https://oauth-api.cloud.huawei.com/rest.php?nsp_fmt=JSON&nsp_svc=huawei.oauth2.user.getTokenInfo';
+const HUAWEI_PROFILE_URL =
+	'https://account.cloud.huawei.com/rest.php?nsp_svc=GOpen.User.getInfo';
 const BIND_TOKEN_EXPIRE_SECONDS = 10 * 60;
 const BIND_TOKEN_PURPOSE = 'huawei_mail_binding';
 
@@ -20,6 +23,7 @@ const huaweiAccountService = {
 			throw new BizError('未获取到华为账号授权码', 400);
 		}
 
+		await huaweiAccountInitService.ensure(c);
 		const identity = await this.exchangeIdentity(c, authorizationCode);
 		const binding = await this.selectByHuaweiUserId(c, identity.huaweiUserId);
 
@@ -28,11 +32,14 @@ const huaweiAccountService = {
 				purpose: BIND_TOKEN_PURPOSE,
 				huaweiUserId: identity.huaweiUserId,
 				unionId: identity.unionId,
-				openId: identity.openId
+				openId: identity.openId,
+				nickName: identity.nickName,
+				avatarUrl: identity.avatarUrl
 			}, BIND_TOKEN_EXPIRE_SECONDS);
 			return { status: 'UNBOUND', bindToken };
 		}
 
+		await this.updateProfile(c, identity);
 		const userRow = await userService.selectById(c, binding.userId);
 		if (!userRow) {
 			throw new BizError('绑定的邮箱账号不存在或已停用', 409);
@@ -138,7 +145,39 @@ const huaweiAccountService = {
 			throw new BizError('华为账号未返回有效身份标识', 401);
 		}
 
-		return { huaweiUserId, unionId: unionId || null, openId };
+		const profile = await this.fetchProfile(tokenPayload.access_token);
+		return {
+			huaweiUserId,
+			unionId: unionId || null,
+			openId,
+			nickName: profile.nickName,
+			avatarUrl: profile.avatarUrl
+		};
+	},
+
+	async fetchProfile(accessToken) {
+		const profileParams = new URLSearchParams();
+		profileParams.append('access_token', accessToken);
+		profileParams.append('getNickName', '1');
+		try {
+			const response = await fetch(HUAWEI_PROFILE_URL, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: profileParams.toString()
+			});
+			const nspStatus = response.headers.get('NSP_STATUS');
+			if (!response.ok || (nspStatus && nspStatus !== '0')) {
+				return { nickName: null, avatarUrl: null };
+			}
+			const payload = await response.json();
+			return {
+				nickName: String(payload.displayName || '').trim() || null,
+				avatarUrl: String(payload.headPictureURL || '').trim() || null
+			};
+		} catch (error) {
+			console.warn('Huawei profile request failed', error instanceof Error ? error.message : 'unknown');
+			return { nickName: null, avatarUrl: null };
+		}
 	},
 
 	async verifyBindToken(c, bindToken) {
@@ -150,7 +189,9 @@ const huaweiAccountService = {
 		return {
 			huaweiUserId: String(payload.huaweiUserId),
 			unionId: payload.unionId ? String(payload.unionId) : null,
-			openId: String(payload.openId)
+			openId: String(payload.openId),
+			nickName: payload.nickName ? String(payload.nickName) : null,
+			avatarUrl: payload.avatarUrl ? String(payload.avatarUrl) : null
 		};
 	},
 
@@ -170,7 +211,10 @@ const huaweiAccountService = {
 				huaweiUserId: identity.huaweiUserId,
 				unionId: identity.unionId,
 				openId: identity.openId,
-				userId
+				userId,
+				nickName: identity.nickName,
+				avatarUrl: identity.avatarUrl,
+				profileUpdateTime: identity.nickName || identity.avatarUrl ? new Date().toISOString() : null
 			}).run();
 		} catch (error) {
 			if (String(error.message || '').includes('UNIQUE constraint failed')) {
@@ -178,6 +222,19 @@ const huaweiAccountService = {
 			}
 			throw error;
 		}
+	},
+
+	async updateProfile(c, identity) {
+		if (!identity.nickName && !identity.avatarUrl) {
+			return;
+		}
+		await c.env.db.prepare(`
+			UPDATE huawei_account
+			SET nick_name = COALESCE(?1, nick_name),
+				avatar_url = COALESCE(?2, avatar_url),
+				profile_update_time = CURRENT_TIMESTAMP
+			WHERE huawei_user_id = ?3
+		`).bind(identity.nickName, identity.avatarUrl, identity.huaweiUserId).run();
 	},
 
 	selectByHuaweiUserId(c, huaweiUserId) {
